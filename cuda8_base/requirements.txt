@@ -1,0 +1,16 @@
+opencv-python==3.4.4.19
+pytesseract
+matplotlib
+numpy
+torch
+torchvision
+tensorflow
+keras
+lmdb
+
+flask
+flask-cors
+flask-httpauth
+flask-sqlalchemy
+scikit-image
+
