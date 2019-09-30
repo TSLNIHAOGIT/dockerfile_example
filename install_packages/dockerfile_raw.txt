@@ -1,0 +1,294 @@
+
+
+
+###cuda8.0.61要求显卡驱动大于375.26
+#cat /usr/local/cuda/verison.txt
+#cat cat /proc/driver/nvidia/version
+
+
+##安捷环境：docker镜像安装的cuda8,但是主机是cuda10,因此容器内显示时仍然显示的主机上的cuda版本，
+
+###docker镜像是按照cuda10安装的torch因此，要求（驱动|cuda10）才能运行
+torch要与此cuda版本相匹配（）
+
+
+##建立cuda8_base镜像
+##requirements.txt模型状态下安装的torch是最新版本，要求的cuda版本也较高，不建议这样装
+numpy
+scipy
+jieba
+scikit-learn==0.21.1
+pandas
+matplotlib
+StatsModels
+requests
+python-Levenshtein
+Seaborn
+xlrd
+flask
+flask-cors
+flask-httpauth
+flask-sqlalchemy
+
+
+
+
+
+
+
+
+####不常变动的写在前面，方便使用缓存；经常变动的写在后面，无法使用缓存;base镜像不要缓存，
+
+
+FROM nvidia/cuda:8.0-cudnn5-devel-ubuntu16.04
+MAINTAINER tsl <tsl@gmail.com>
+##设置时间为cts时间，##设置语言为中文
+ENV TZ=Asia/Shanghai  LANG C.UTF-8 LC_ALL=C.UTF-8
+#设置docker工作目录
+WORKDIR /ai
+
+# 添加阿里云apt源,注释不能写到和命令同一行
+COPY sources.list  /etc/apt/ 
+# 教育网用清华，其他网就用网易或者阿里
+
+
+##删除第三方源文件，安装相关依赖,这些依赖基本上不会变动，已经python3.6.5和pip3
+RUN rm /etc/apt/sources.list.d/* && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends  openssl libssl-dev  libc6-dev gcc g++ vim  git \ 
+    make build-essential zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm tk-dev && \
+	wget -O - https://www.python.org/ftp/python/3.6.5/Python-3.6.5.tgz  | tar zxf - && \
+	cd ./Python-3.6.5/ && \
+    ./configure --prefix=/usr/local/python3 --enable-optimizations && \
+    make && \
+	make install && \
+	ln -s /usr/local/python3/bin/python3.6 /usr/bin/python3 && \
+    ln -s /usr/local/python3/bin/pip3 /usr/bin/pip3 && \
+	pip3 install -U pip -i https://pypi.douban.com/simple
+
+COPY requirements.txt /tmp/
+#安装的python库可能会新增，因此放在后面，前面的可以重用
+RUN	apt-get update  && \
+    pip3 install -r /tmp/requirements.txt -i https://pypi.douban.com/simple && \
+	##删除不需要的文件
+	rm -rf /var/lib/apt/lists/*  ~/.cache/pip && \
+	apt-get autoclean && \
+	apt-get clean && \
+    apt-get autoremove 
+
+	
+	
+sudo docker build -t cuda8_base .
+
+
+###下面以cuda8_base为基础安装pytorch依赖，如ctc等
+谷歌浏览器老是打字时退出
+##cuda8_base的工作目录是/ai，因此操作都是在/ai中
+
+FROM cuda8_base
+MAINTAINER tsl <tsl@gmail.com>
+##设置语言为中文
+ENV TZ=Asia/Shanghai LANG=C.UTF-8 LC_ALL=C.UTF-8
+WORKDIR /ai
+COPY waitress-serve  /usr/bin
+##里面有第三方源，这个不需要
+#RUN rm /etc/apt/sources.list.d/* && \
+RUN    apt-get update && \
+    apt-get install -y --no-install-recommends tesseract-ocr && \
+    wget -O - https://cmake.org/files/v3.3/cmake-3.3.2.tar.gz | tar zxf - && \
+	cd cmake-3.3.2/ && \
+    ./bootstrap && \
+	make && \
+	make install && \
+	cd .. && \
+	git clone https://github.com/SeanNaren/warp-ctc.git && \
+	cd warp-ctc/ && \
+	mkdir build && \
+	cd build && \
+	cmake ..  && \
+	make && \
+	cd .. && \
+	cd pytorch_binding && \
+	python3 setup.py install && \
+	cd /usr/bin && \
+	chmod 777 waitress-serve
+
+COPY requirements.txt /tmp/
+#安装的python库可能会新增，因此放在后面，前面的可以重用
+RUN	apt-get update  && \
+    pip3 install -r /tmp/requirements.txt -i https://pypi.douban.com/simple && \
+	##删除不需要的文件
+	rm -rf /var/lib/apt/lists/*  ~/.cache/pip && \
+	apt-get autoclean && \
+	apt-get clean && \
+    apt-get autoremove 	
+	
+	
+	
+nohup sudo docker build -t cuda8_torch . &
+
+
+ sudo docker run --runtime nvidia  --name cuda8_torch -itd registry.cn-hangzhou.aliyuncs.com/picture_detect/cuda8_torch
+ 
+ ##启动docker容器
+ ##模型路径
+ 
+ ##nvidia-docker2
+ sudo docker run --runtime nvidia --name cuda8_torch_v1  --restart always --env LANG=C.UTF-8 --env LC_ALL=C.UTF-8 -itd -p 8888:8888 -v /home/amiadmin/turing/services/jupyter_notebook/tsl:/ai registry.cn-hangzhou.aliyuncs.com/picture_detect/cuda8_torch:v1
+ 
+ 
+ ##toolkit
+ 
+ sudo docker run --gpus device=0 --name cuda8_torch_v1  --restart always --env LANG=C.UTF-8 --env LC_ALL=C.UTF-8 -itd -p 8888:8888 -v /home/amiadmin/turing/services/jupyter_notebook/tsl:/ai registry.cn-hangzhou.aliyuncs.com/picture_detect/cuda8_torch:v1
+ 
+  sudo docker run --runtime nvidia --name cuda8_torch  --restart always  -itd -p 8888:8888 -v /home/amiadmin/turing/services/jupyter_notebook/tsl:/ai registry.cn-hangzhou.aliyuncs.com/picture_detect/cuda8_torch
+ 
+ ##进入容器内部
+ sudo docker exec -it cuda8_torch bash
+ 
+ 
+ ##开启flask服务
+ CUDA_VISIBLE_DEVICES=1 nohup python3 app.py>log.txt 2>&1 &
+ CUDA_VISIBLE_DEVICES=1 nohup waitress-serve --listen=*:8888 --channel-timeout=900 wsgi:app>log.txt 2>&1 &
+ 
+  sudo docker run --runtime nvidia --name cuda8_torch_temp  --env LANG C.UTF-8 --env LC_ALL C.UTF-8 -itd -p 8888:8888 -v /home/amiadmin/turing/services/jupyter_notebook/tsl:/ai registry.cn-hangzhou.aliyuncs.com/picture_detect/cuda8_torch
+  sudo docker exec -it cuda8_torch_temp bash
+ 
+
+
+
+####安装tesseract
+apt-get install tesseract-ocr
+
+##docker 容器内/usr/bin下新建文件
+waitress-serve
+#!/usr/bin/python3
+
+# -*- coding: utf-8 -*-
+import re
+import sys
+
+from waitress.runner import run
+
+if __name__ == '__main__':
+    sys.argv[0] = re.sub(r'(-script\.pyw?|\.exe)?$', '', sys.argv[0])
+    sys.exit(run())
+chmod 777 waitress-serve 
+
+ 
+ #torch要换为与cuda8.061想对应的，且要与torchvision版本对应
+ ##速度快
+ 
+ pip3 install  http://download.pytorch.org/whl/cu80/torch-1.0.1.post2-cp36-cp36m-linux_x86_64.whl
+ torchvision==0.2.2.post3
+ 
+ http://download.pytorch.org/whl/cu80/torch-0.3.1-cp36-cp36m-linux_x86_64.whl
+ torchvision==0.2.1
+ 
+ 速度慢，可以把torch版本写错，然后看到底有哪些版本能下载，最后又速度快的方式下载
+ ##pip3 install torch==121 -f https://download.pytorch.org/whl/cu80/torch_stable.html
+  
+ ##requirements.txt
+opencv-python==3.4.4.19
+http://download.pytorch.org/whl/cu80/torch-1.0.1.post2-cp36-cp36m-linux_x86_64.whl
+torchvision
+tensorflow
+keras
+lmdb
+scikit-image
+pytesseract
+PyPDF2
+pdfminer3k
+python-docx
+pdfplumber
+pymysql
+https://download.lfd.uci.edu/pythonlibs/g5apjq5m/python_docx-0.8.10-py2.py3-none-any.whl
+
+
+ ##docx
+ ##exceptions
+ https://download.lfd.uci.edu/pythonlibs/g5apjq5m/python_docx-0.8.10-py2.py3-none-any.whl
+ ##python安装docx模块出现Import Error: No module named 'exceptions'的解决方案
+
+ 
+ vi ~/.bash_profile
+ export LANG="C.UTF-8"
+ export LC_ALL="C.UTF-8"
+ source  ~/.bash_profile
+ 
+ 
+ PYTHONIOENCODING=utf-8 python3 test_pdf.py
+ 
+ 
+ 
+ CUDA_VISIBLE_DEVICES=1 python3 app.py
+ CUDA_VISIBLE_DEVICES=1 nohup python3 app.py>log.txt 2>&1 &
+ 
+##由于网络问题失败的要重新构建
+
+
+sudo tail -20 /home/turing/nohup.out
+
+##
+python编译好的包可以直接拿去安装么
+python源码包编译后可以在不同机器上安装么
+
+	
+	
+
+
+
+
+wget https://cmake.org/files/v3.3/cmake-3.3.2.tar.gz 
+
+
+
+##安装相关依赖
+#RUN yum -y groupinstall 'Development Tools'
+#RUN yum -y install epel-release && \
+##上面两行关于yum使用的不需要
+
+    yum -y install gcc && \
+    yum -y install zlib-devel && \
+    yum -y install bzip2-devel && \
+    yum -y install openssl-devel && \
+    yum -y install ncurses-devel && \
+    yum -y install wget && \
+    yum -y install zlib* && \
+   ##轻量级数据库不需要
+   # yum -y install sqlite-devel
+	
+	
+
+##安装python环境
+RUN cd /Python-3.6.5/ && \
+    ##编译时需要 --with-ssl,否则涉及该模块时不可用
+    ./configure  --with-ssl --prefix=/usr/local/python3 --enable-optimizations && \
+    make && \
+    make install
+	
+	
+# 我们可以清除之前编译的可执行文件及配置文件 && 清除所有生成的文件：
+make clean && make distclean
+
+##建立软连接
+RUN ln -s /usr/local/python3/bin/python3.6 /usr/bin/python3 && \
+    ln -s /usr/local/python3/bin/pip3 /usr/bin/pip3
+RUN pip3 install --upgrade pip
+
+
+
+
+RUN toinstall="python3.6.5 python3-pip" \
+  && apt update \
+  && apt install -y $toinstall
+
+WORKDIR /ai
+COPY torch-0.3.1-cp35-cp35m-linux_x86_64.whl ./
+RUN toinstall="torch-0.3.1-cp35-cp35m-linux_x86_64.whl" \
+  && pip3 install --upgrade pip \
+  && pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple $toinstall \
+  && pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple torchvision \
+  && rm -f $toinstall \
+  && apt clean \
+  && apt autoremove -y
