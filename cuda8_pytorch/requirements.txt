@@ -1,0 +1,14 @@
+opencv-python==3.4.4.19
+http://download.pytorch.org/whl/cu80/torch-1.0.1.post2-cp36-cp36m-linux_x86_64.whl
+torchvision
+tensorflow
+keras
+lmdb
+scikit-image
+pytesseract
+PyPDF2
+pdfminer3k
+pdfplumber
+pymysql
+https://download.lfd.uci.edu/pythonlibs/g5apjq5m/python_docx-0.8.10-py2.py3-none-any.whl
+waitress
