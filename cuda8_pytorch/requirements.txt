@@ -1,7 +1,7 @@
 opencv-python==3.4.4.19
 http://download.pytorch.org/whl/cu80/torch-1.0.1.post2-cp36-cp36m-linux_x86_64.whl
 torchvision
-tensorflow
+tensorflow-gpu
 keras
 lmdb
 scikit-image
