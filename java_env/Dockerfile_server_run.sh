@@ -1,0 +1,1 @@
+docker run --name amiintellect_backend_test2 -itd -e APP_NAME="cisdi-program-3.0.jar" -e APP_MAIN_CLASS=com.amiintellect.cisdi.program.App -v /home/turing/services/jupyter_home/tsl/docker_example/ml/java_env/testEnv:/ai/testEnv  -v /home/turing/services/jupyter_home/tsl/docker_example/ml/java_env/testEnv/log:/ai/testEnv/log -p 18095:18095  testenv
