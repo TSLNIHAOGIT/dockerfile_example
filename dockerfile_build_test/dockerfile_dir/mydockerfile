@@ -1,0 +1,6 @@
+FROM nexus.amiintellect.com/repository/docker-hosted/ubuntu:16.04
+#将readme.txt文件内容复制到ai文件中
+COPY ./readme.txt /ai
+#将readme.txt文件复制到bi文件夹下
+COPY ./readme.txt /bi/
+
